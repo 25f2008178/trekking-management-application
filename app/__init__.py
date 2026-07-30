@@ -7,6 +7,7 @@ from .extensions import db, security
 from .models import Role, User
 from .routes import main
 from .forms import ExtendedRegisterForm
+from .signals import init_signals
 
 def create_app():
     app = Flask(__name__)
@@ -22,10 +23,14 @@ def create_app():
     app.config["SECURITY_RECOVERABLE"] = False
     app.config["SECURITY_CHANGEABLE"] = False
     app.config["SECURITY_CONFIRMABLE"] = False
+    app.config["WTF_CSRF_ENABLED"] = False
+    app.config["SECURITY_CSRF_IGNORE_UNAUTHENTICATED"] = True
 
     db.init_app(app)
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
     security.init_app(app, user_datastore, register_form=ExtendedRegisterForm)
+
+    init_signals(app, user_datastore)
 
     app.register_blueprint(main)
     return app
