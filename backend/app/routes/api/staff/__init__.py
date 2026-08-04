@@ -11,3 +11,4 @@ def check_staff_access():
     if not hasattr(current_user, "staff_profile") or current_user.staff_profile is None:
         return jsonify({"error": "Access denied. No active staff profile found."}), 403
 
+from . import treks
