@@ -8,5 +8,3 @@ admin_bp = Blueprint("admin", __name__)
 @roles_accepted("admin")
 def check_admin_access():
     pass
-
-from . import treks, staff, users, search
