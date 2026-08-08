@@ -25,7 +25,10 @@ def list_users():
 
     role_param = request.args.get("role")
     if role_param:
-        query = query.filter(User.roles.any(Role.name == role_param.lower()))
+        if role_param.lower() != "all":
+            query = query.filter(User.roles.any(Role.name == role_param.lower()))
+    else:
+        query = query.filter(User.roles.any(Role.name == "user"))
 
     active_param = request.args.get("active")
     if active_param is not None:

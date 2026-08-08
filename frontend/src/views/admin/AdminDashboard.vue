@@ -8,6 +8,7 @@ import TreksTab from '@/components/admin/TreksTab.vue'
 import StaffTab from '@/components/admin/StaffTab.vue'
 import UsersTab from '@/components/admin/UsersTab.vue'
 import BookingsTab from '@/components/admin/BookingsTab.vue'
+import AppLogo from '@/components/common/AppLogo.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -31,11 +32,8 @@ onMounted(async () => {
     <!-- Top Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark-slate shadow-sm sticky-top">
       <div class="container-fluid px-4">
-        <a class="navbar-brand d-flex align-items-center fw-bold" href="#">
-          <div class="brand-badge me-2 rounded-circle d-flex align-items-center justify-content-center">
-            <i class="bi bi-mountain-half text-white fs-5"></i>
-          </div>
-          <span class="tracking-tight text-white">Trekking Management App <span class="badge bg-emerald ms-1 fs-7">Admin</span></span>
+        <a class="navbar-brand d-flex align-items-center text-decoration-none" href="#">
+          <AppLogo size="sm" badge-text="Admin" />
         </a>
 
         <div class="d-flex align-items-center ms-auto">

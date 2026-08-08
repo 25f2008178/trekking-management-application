@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import request, jsonify
 from app.extensions import db
 from app.models import Trek, TrekDifficulty, TrekStatus, StaffProfile
@@ -76,10 +76,23 @@ def create_trek():
     trek_name = data.get("trek_name")
     location = data.get("location")
     difficulty_raw = data.get("difficulty")
-    duration = data.get("duration")
+    start_date = parse_iso_datetime(data.get("start_date"))
+    end_date = parse_iso_datetime(data.get("end_date"))
 
-    if not trek_name or not location or not difficulty_raw or duration is None:
-        return jsonify({"error": "trek_name, location, difficulty, and duration are required fields."}), 400
+    today_date = datetime.now(timezone.utc).date()
+    if start_date and start_date.date() < today_date:
+        return jsonify({"error": "Start date cannot be in the past (before today)."}), 400
+
+    if start_date and end_date and end_date < start_date:
+        return jsonify({"error": "End date cannot be before start date."}), 400
+
+    if start_date and end_date:
+        duration = max(0, (end_date - start_date).days)
+    else:
+        duration = int(data.get("duration", 0))
+
+    if not trek_name or not location or not difficulty_raw:
+        return jsonify({"error": "trek_name, location, and difficulty are required fields."}), 400
 
     try:
         difficulty = TrekDifficulty(difficulty_raw.capitalize())
@@ -102,11 +115,11 @@ def create_trek():
         trek_name=trek_name,
         location=location,
         difficulty=difficulty,
-        duration=int(duration),
+        duration=duration,
         available_slots=int(data.get("available_slots", 0)),
         status=status,
-        start_date=parse_iso_datetime(data.get("start_date")),
-        end_date=parse_iso_datetime(data.get("end_date")),
+        start_date=start_date,
+        end_date=end_date,
         assigned_staff_id=assigned_staff_id
     )
 
@@ -142,8 +155,6 @@ def update_trek(trek_id):
             trek.difficulty = TrekDifficulty(data["difficulty"].capitalize())
         except ValueError:
             return jsonify({"error": f"Invalid difficulty. Must be one of: {[e.value for e in TrekDifficulty]}"}), 400
-    if "duration" in data:
-        trek.duration = int(data["duration"])
     if "available_slots" in data:
         trek.available_slots = int(data["available_slots"])
     if "status" in data:
@@ -155,6 +166,19 @@ def update_trek(trek_id):
         trek.start_date = parse_iso_datetime(data["start_date"])
     if "end_date" in data:
         trek.end_date = parse_iso_datetime(data["end_date"])
+
+    today_date = datetime.now(timezone.utc).date()
+    if trek.start_date and trek.start_date.date() < today_date:
+        return jsonify({"error": "Start date cannot be in the past (before today)."}), 400
+
+    if trek.start_date and trek.end_date and trek.end_date < trek.start_date:
+        return jsonify({"error": "End date cannot be before start date."}), 400
+
+    if trek.start_date and trek.end_date:
+        trek.duration = max(0, (trek.end_date - trek.start_date).days)
+    elif "duration" in data:
+        trek.duration = int(data["duration"])
+
     if "assigned_staff_id" in data:
         staff_id = data["assigned_staff_id"]
         if staff_id is not None:

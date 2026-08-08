@@ -14,4 +14,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.modal-content {
+  background-color: #ffffff !important;
+}
 </style>

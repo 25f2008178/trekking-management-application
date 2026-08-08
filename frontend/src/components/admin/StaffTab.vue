@@ -282,7 +282,7 @@ const toggleStaffStatus = async (staff) => {
     <div v-if="showAddModal" class="modal-backdrop fade show"></div>
     <div v-if="showAddModal" class="modal d-block fade show" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-content bg-white border-0 shadow-lg rounded-4">
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-header-title fw-bold text-dark">
               <i class="bi bi-person-plus-fill me-2 text-purple"></i>Add New Trek Staff Member
@@ -332,7 +332,7 @@ const toggleStaffStatus = async (staff) => {
     <div v-if="showEditModal" class="modal-backdrop fade show"></div>
     <div v-if="showEditModal" class="modal d-block fade show" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-content bg-white border-0 shadow-lg rounded-4">
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-header-title fw-bold text-dark">
               <i class="bi bi-pencil-square me-2 text-primary"></i>Edit Staff Member #{{ editingStaff.id }}

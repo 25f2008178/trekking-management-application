@@ -9,16 +9,14 @@ const successMessage = ref('')
 
 const searchQuery = ref('')
 const activeFilter = ref('')
-const roleFilter = ref('')
 
 const loadData = async () => {
   loading.value = true
   actionError.value = ''
   try {
-    const params = {}
+    const params = { role: 'user' }
     if (searchQuery.value) params.search = searchQuery.value
     if (activeFilter.value !== '') params.active = activeFilter.value
-    if (roleFilter.value) params.role = roleFilter.value
 
     const data = await api.get('/api/admin/users', params)
     users.value = data || []
@@ -35,6 +33,10 @@ onMounted(() => {
 
 const filteredUsers = computed(() => {
   return users.value.filter(u => {
+    // Only display users with the 'user' (trekker) role
+    const isTrekker = u.roles && u.roles.includes('user')
+    if (!isTrekker) return false
+
     if (!searchQuery.value) return true
     const q = searchQuery.value.toLowerCase()
     return (
@@ -78,7 +80,7 @@ const toggleUserActiveStatus = async (user) => {
     <div class="card border-0 shadow-sm rounded-4 mb-4">
       <div class="card-body p-4">
         <div class="row g-3 align-items-center">
-          <div class="col-12 col-md-6">
+          <div class="col-12 col-md-8">
             <div class="input-group">
               <span class="input-group-text bg-light border-end-0">
                 <i class="bi bi-search text-muted"></i>
@@ -87,26 +89,17 @@ const toggleUserActiveStatus = async (user) => {
                 v-model="searchQuery"
                 type="text"
                 class="form-control bg-light border-start-0"
-                placeholder="Search user by Name, Email, or ID..."
+                placeholder="Search trekker by Name, Email, or ID..."
                 @input="loadData"
               />
             </div>
           </div>
 
-          <div class="col-6 col-md-3">
+          <div class="col-12 col-md-4">
             <select v-model="activeFilter" class="form-select bg-light" @change="loadData">
               <option value="">All Account States</option>
               <option value="true">Active Only</option>
               <option value="false">Blacklisted / Inactive Only</option>
-            </select>
-          </div>
-
-          <div class="col-6 col-md-3">
-            <select v-model="roleFilter" class="form-select bg-light" @change="loadData">
-              <option value="">All System Roles</option>
-              <option value="user">User Role</option>
-              <option value="staff">Staff Role</option>
-              <option value="admin">Admin Role</option>
             </select>
           </div>
         </div>
@@ -117,7 +110,7 @@ const toggleUserActiveStatus = async (user) => {
     <div class="card border-0 shadow-sm rounded-4">
       <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex align-items-center justify-content-between">
         <h5 class="fw-bold mb-0 text-dark">
-          <i class="bi bi-people-fill me-2 text-primary"></i>System Users Directory
+          <i class="bi bi-people-fill me-2 text-primary"></i>Users Directory (Trekkers)
         </h5>
         <span class="badge bg-light text-dark border rounded-pill px-3">
           Total Users: {{ filteredUsers.length }}

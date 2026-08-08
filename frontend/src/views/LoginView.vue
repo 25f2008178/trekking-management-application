@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import AppLogo from '@/components/common/AppLogo.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -18,13 +19,14 @@ const handleLogin = async () => {
     return
   }
 
-  errorMessage.value = ''
   isSubmitting.value = true
-
+  errorMessage.value = ''
   try {
     await authStore.login(email.value, password.value)
     if (authStore.isAdmin) {
       router.push('/admin')
+    } else if (authStore.isStaff) {
+      router.push('/staff')
     } else {
       router.push('/')
     }
@@ -41,8 +43,8 @@ const handleLogin = async () => {
     <div class="login-card card border-0 shadow-sm rounded-3 overflow-hidden">
       <!-- Header styled inline with dashboard navbar -->
       <div class="bg-dark-slate text-center p-4">
-        <div class="brand-badge mb-2 mx-auto rounded-circle d-flex align-items-center justify-content-center">
-          <i class="bi bi-mountain-half text-white fs-4"></i>
+        <div class="d-flex justify-content-center mb-2">
+          <AppLogo size="lg" :show-text="false" />
         </div>
         <h4 class="fw-bold text-white mb-1">Trekking Management App</h4>
         <p class="text-white-50 small mb-0">System Login</p>

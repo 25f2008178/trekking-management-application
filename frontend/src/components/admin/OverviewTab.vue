@@ -44,7 +44,7 @@ onMounted(() => {
 
 // Metrics
 const totalTreks = computed(() => treks.value.length)
-const totalUsers = computed(() => users.value.filter(u => !u.is_staff && !u.roles?.includes('admin')).length)
+const totalUsers = computed(() => users.value.filter(u => u.roles?.includes('user')).length)
 const totalStaff = computed(() => staff.value.length)
 const totalBookingsCount = computed(() => {
   return treks.value.reduce((acc, t) => acc + (t.bookings_count || 0), 0)

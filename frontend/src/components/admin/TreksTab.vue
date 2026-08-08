@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { api } from '@/services/api'
 
 const treks = ref([])
@@ -20,19 +20,45 @@ const showAssignModal = ref(false)
 const showDeleteModal = ref(false)
 const isSubmitting = ref(false)
 
-// Form data for Create / Edit
 const currentTrek = ref({
   id: null,
   trek_name: '',
   location: '',
   difficulty: 'Easy',
-  duration: 1,
+  duration: 0,
   available_slots: 10,
   status: 'Open',
   start_date: '',
   end_date: '',
   assigned_staff_id: null,
 })
+
+const todayStr = computed(() => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+})
+
+const minEndDate = computed(() => {
+  return currentTrek.value.start_date || todayStr.value
+})
+
+watch(
+  [() => currentTrek.value.start_date, () => currentTrek.value.end_date],
+  ([start, end]) => {
+    if (start && end) {
+      const startDate = new Date(start)
+      const endDate = new Date(end)
+      const diffMs = endDate.getTime() - startDate.getTime()
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+      currentTrek.value.duration = diffDays > 0 ? diffDays : 0
+    } else {
+      currentTrek.value.duration = 0
+    }
+  }
+)
 
 // Assign modal state
 const trekToAssign = ref(null)
@@ -84,7 +110,7 @@ const resetForm = () => {
     trek_name: '',
     location: '',
     difficulty: 'Easy',
-    duration: 1,
+    duration: 0,
     available_slots: 10,
     status: 'Open',
     start_date: '',
@@ -126,6 +152,15 @@ const openDeleteConfirm = (trek) => {
 }
 
 const handleCreate = async () => {
+  if (currentTrek.value.start_date && currentTrek.value.start_date < todayStr.value) {
+    actionError.value = 'Start date cannot be in the past (before today).'
+    return
+  }
+  if (currentTrek.value.start_date && currentTrek.value.end_date && currentTrek.value.end_date < currentTrek.value.start_date) {
+    actionError.value = 'End date cannot be before start date.'
+    return
+  }
+
   isSubmitting.value = true
   actionError.value = ''
   try {
@@ -147,6 +182,15 @@ const handleCreate = async () => {
 }
 
 const handleUpdate = async () => {
+  if (currentTrek.value.start_date && currentTrek.value.start_date < todayStr.value) {
+    actionError.value = 'Start date cannot be in the past (before today).'
+    return
+  }
+  if (currentTrek.value.start_date && currentTrek.value.end_date && currentTrek.value.end_date < currentTrek.value.start_date) {
+    actionError.value = 'End date cannot be before start date.'
+    return
+  }
+
   isSubmitting.value = true
   actionError.value = ''
   try {
@@ -376,7 +420,7 @@ const handleDelete = async () => {
     <div v-if="showCreateModal || showEditModal" class="modal-backdrop fade show"></div>
     <div v-if="showCreateModal || showEditModal" class="modal d-block fade show" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-content bg-white border-0 shadow-lg rounded-4">
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-header-title fw-bold text-dark">
               <i class="bi bi-compass-fill me-2 text-emerald"></i>
@@ -408,8 +452,15 @@ const handleDelete = async () => {
                 </div>
 
                 <div class="col-6 col-md-4">
-                  <label class="form-label fw-semibold">Duration (Days) *</label>
-                  <input v-model="currentTrek.duration" type="number" min="1" class="form-control" required />
+                  <label class="form-label fw-semibold">Duration (Days)</label>
+                  <input
+                    v-model="currentTrek.duration"
+                    type="number"
+                    class="form-control bg-light"
+                    readonly
+                    disabled
+                  />
+                  <small class="text-muted fs-8">Auto-calculated (excl. end day)</small>
                 </div>
 
                 <div class="col-6 col-md-4">
@@ -430,12 +481,22 @@ const handleDelete = async () => {
 
                 <div class="col-6 col-md-4">
                   <label class="form-label fw-semibold">Start Date</label>
-                  <input v-model="currentTrek.start_date" type="date" class="form-control" />
+                  <input
+                    v-model="currentTrek.start_date"
+                    type="date"
+                    :min="todayStr"
+                    class="form-control"
+                  />
                 </div>
 
                 <div class="col-6 col-md-4">
                   <label class="form-label fw-semibold">End Date</label>
-                  <input v-model="currentTrek.end_date" type="date" class="form-control" />
+                  <input
+                    v-model="currentTrek.end_date"
+                    type="date"
+                    :min="minEndDate"
+                    class="form-control"
+                  />
                 </div>
 
                 <div class="col-12">
@@ -468,7 +529,7 @@ const handleDelete = async () => {
     <div v-if="showAssignModal" class="modal-backdrop fade show"></div>
     <div v-if="showAssignModal" class="modal d-block fade show" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-content bg-white border-0 shadow-lg rounded-4">
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-header-title fw-bold text-dark">
               <i class="bi bi-person-check-fill me-2 text-primary"></i>Assign Staff Guide
@@ -504,7 +565,7 @@ const handleDelete = async () => {
     <div v-if="showDeleteModal" class="modal-backdrop fade show"></div>
     <div v-if="showDeleteModal" class="modal d-block fade show" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-content bg-white border-0 shadow-lg rounded-4">
           <div class="modal-header border-0 pb-0">
             <h5 class="modal-header-title fw-bold text-danger">
               <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Removal
