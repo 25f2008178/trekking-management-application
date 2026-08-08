@@ -15,4 +15,40 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/login': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept && req.headers.accept.includes('html')) {
+            return '/index.html'
+          }
+        },
+      },
+      '/logout': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept && req.headers.accept.includes('html')) {
+            return '/index.html'
+          }
+        },
+      },
+      '/register': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        bypass(req) {
+          if (req.headers.accept && req.headers.accept.includes('html')) {
+            return '/index.html'
+          }
+        },
+      },
+    },
+  },
 })

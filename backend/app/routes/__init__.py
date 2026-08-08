@@ -7,7 +7,6 @@ main = Blueprint("main", __name__)
 main.register_blueprint(api, url_prefix="/api")
 
 @main.route("/")
-@main.route("/dashboard")
 @auth_required()
-def dashboard():
-    return render_template("index.html")
+def home():
+    return "Welcome to the API"
