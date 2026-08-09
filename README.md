@@ -45,6 +45,7 @@ trekking-management-application/
 │   ├── src/
 │   └── package.json
 ├── docker-compose.yaml          # Redis, Redis Commander, MailHog
+├── api.yaml                     # OpenAPI 3.0 REST API Specification
 ├── .env                         # Environment variables (not committed)
 └── .env.example                 # Template for .env
 ```
@@ -53,8 +54,8 @@ trekking-management-application/
 
 ## Prerequisites
 
-- **Python** 3.11+
-- **Node.js** 22+ (see `frontend/package.json` engines)
+- **Python** 3.11
+- **Node.js** 24 (see `frontend/package.json` engines)
 - **Docker** & **Docker Compose** (for Redis, MailHog)
 
 ---

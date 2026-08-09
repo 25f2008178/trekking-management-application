@@ -1,0 +1,946 @@
+openapi: 3.0.3
+info:
+  title: Trekking Management Application API
+  description: |
+    RESTful API specification for the Trekking Management Application built with Flask, Vue 3, Celery, and Redis.
+    Provides endpoints for authentication, trek management, bookings, staff assignments, reports, and async CSV exports.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+    description: Local Development Server
+
+tags:
+  - name: Auth
+    description: Authentication and User Account endpoints
+  - name: User Treks & Bookings
+    description: Trekker operations (Explore treks, book, cancel, CSV export)
+  - name: Staff Operations
+    description: Staff guide operations (View assigned treks, update slots, mark complete)
+  - name: Admin Operations
+    description: Administrator management (Treks, Staff, Users, Global Search)
+
+paths:
+  # ==========================================
+  # AUTHENTICATION
+  # ==========================================
+  /login:
+    post:
+      tags:
+        - Auth
+      summary: User Login
+      description: Authenticate user and initiate session cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: trekker@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password
+      responses:
+        '200':
+          description: Successfully authenticated
+        '400':
+          description: Invalid email or password
+
+  /logout:
+    post:
+      tags:
+        - Auth
+      summary: User Logout
+      description: Terminate active session.
+      responses:
+        '200':
+          description: Successfully logged out
+
+  /register:
+    post:
+      tags:
+        - Auth
+      summary: User Registration
+      description: Register a new Trekker account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  example: Alex Morgan
+                email:
+                  type: string
+                  format: email
+                  example: alex@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: User registered successfully
+        '400':
+          description: Registration error or email taken
+
+  # ==========================================
+  # USER ENDPOINTS
+  # ==========================================
+  /api/user/profile:
+    get:
+      tags:
+        - User Treks & Bookings
+      summary: Get Profile
+      description: Retrieve current logged-in trekker profile.
+      responses:
+        '200':
+          description: User profile details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+    put:
+      tags:
+        - User Treks & Bookings
+      summary: Update Profile
+      description: Update profile details (name, email, password).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Profile updated successfully
+        '400':
+          description: Validation or email collision error
+
+  /api/user/treks:
+    get:
+      tags:
+        - User Treks & Bookings
+      summary: List Open Treks
+      description: Retrieve open trek expeditions available for booking. (Cached in Redis)
+      parameters:
+        - name: difficulty
+          in: query
+          schema:
+            $ref: '#/components/schemas/TrekDifficulty'
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: duration
+          in: query
+          schema:
+            type: integer
+        - name: min_duration
+          in: query
+          schema:
+            type: integer
+        - name: max_duration
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of available open treks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trek'
+
+  /api/user/treks/{trek_id}:
+    get:
+      tags:
+        - User Treks & Bookings
+      summary: Get Trek Details
+      description: Retrieve details for a specific open trek. (Cached in Redis)
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Trek details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trek'
+        '404':
+          description: Trek not found or not open
+
+  /api/user/bookings:
+    get:
+      tags:
+        - User Treks & Bookings
+      summary: List User Bookings
+      description: Retrieve all trek bookings made by the current user.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/BookingStatus'
+      responses:
+        '200':
+          description: List of user bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+    post:
+      tags:
+        - User Treks & Bookings
+      summary: Book a Trek
+      description: Book an available slot on an open trek. Invalidates trek cache.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - trek_id
+              properties:
+                trek_id:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Trek booked successfully
+        '400':
+          description: No slots available, trek not open, or already booked
+
+  /api/user/bookings/{booking_id}:
+    get:
+      tags:
+        - User Treks & Bookings
+      summary: Get Booking
+      description: Retrieve booking details by ID.
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '404':
+          description: Booking not found
+
+  /api/user/bookings/{booking_id}/cancel:
+    put:
+      tags:
+        - User Treks & Bookings
+      summary: Cancel Booking
+      description: Cancel an active trek booking and release slot back to the trek.
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Booking cancelled successfully
+        '400':
+          description: Booking already cancelled or completed
+        '404':
+          description: Booking not found
+
+  /api/user/export:
+    post:
+      tags:
+        - User Treks & Bookings
+      summary: Trigger CSV Export
+      description: Launch async Celery task to export user booking history to CSV.
+      responses:
+        '202':
+          description: Export job initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  task_id:
+                    type: string
+                    example: 611bab3a-e293-4228-8ce3-3417251921cc
+
+  /api/user/export/{task_id}:
+    get:
+      tags:
+        - User Treks & Bookings
+      summary: Poll Export Status
+      description: Poll status of async export task.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task status response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                  status:
+                    type: string
+                    example: SUCCESS
+                  result:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                      rows:
+                        type: integer
+
+  /api/user/export/{task_id}/download:
+    get:
+      tags:
+        - User Treks & Bookings
+      summary: Download Export CSV
+      description: Download completed CSV export file.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: CSV File Download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Task not completed or file not ready
+
+  # ==========================================
+  # STAFF ENDPOINTS
+  # ==========================================
+  /api/staff/treks:
+    get:
+      tags:
+        - Staff Operations
+      summary: List Assigned Treks
+      description: Retrieve treks assigned to the current staff guide. (Cached in Redis)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TrekStatus'
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of assigned treks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trek'
+        '403':
+          description: Access denied (Not active staff)
+
+  /api/staff/treks/{trek_id}:
+    get:
+      tags:
+        - Staff Operations
+      summary: Get Assigned Trek
+      description: Get details of an assigned trek.
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Trek details
+        '403':
+          description: Trek not assigned to user
+    put:
+      tags:
+        - Staff Operations
+      summary: Update Assigned Trek
+      description: Update slots or status (Open/Closed/Completed) for assigned trek.
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                available_slots:
+                  type: integer
+                status:
+                  $ref: '#/components/schemas/TrekStatus'
+      responses:
+        '200':
+          description: Trek updated successfully
+        '400':
+          description: Cannot modify completed trek or invalid status
+
+  /api/staff/treks/{trek_id}/users:
+    get:
+      tags:
+        - Staff Operations
+      summary: List Registered Users
+      description: Retrieve list of registered participants for an assigned trek.
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Registered participants list
+
+  /api/staff/treks/{trek_id}/complete:
+    put:
+      tags:
+        - Staff Operations
+      summary: Mark Trek Completed
+      description: Mark trek as completed and update active bookings to completed.
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Trek marked as completed
+
+  # ==========================================
+  # ADMIN ENDPOINTS
+  # ==========================================
+  /api/admin/treks:
+    get:
+      tags:
+        - Admin Operations
+      summary: List All Treks (Admin)
+      description: List all trek routes in the system. (Cached in Redis)
+      parameters:
+        - name: difficulty
+          in: query
+          schema:
+            $ref: '#/components/schemas/TrekDifficulty'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TrekStatus'
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of treks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trek'
+    post:
+      tags:
+        - Admin Operations
+      summary: Create Trek Route
+      description: Create a new trek route in the system. Invalidates trek cache.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - trek_name
+                - location
+                - difficulty
+              properties:
+                trek_name:
+                  type: string
+                  example: Annapurna Circuit
+                location:
+                  type: string
+                  example: Nepal
+                difficulty:
+                  $ref: '#/components/schemas/TrekDifficulty'
+                duration:
+                  type: integer
+                  example: 12
+                available_slots:
+                  type: integer
+                  example: 15
+                status:
+                  $ref: '#/components/schemas/TrekStatus'
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+                assigned_staff_id:
+                  type: integer
+      responses:
+        '201':
+          description: Trek route created successfully
+        '400':
+          description: Validation error
+
+  /api/admin/treks/{trek_id}:
+    get:
+      tags:
+        - Admin Operations
+      summary: Get Trek (Admin)
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Trek details
+    put:
+      tags:
+        - Admin Operations
+      summary: Update Trek Route
+      description: Update trek details. Completed treks are immutable.
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trek_name:
+                  type: string
+                location:
+                  type: string
+                difficulty:
+                  $ref: '#/components/schemas/TrekDifficulty'
+                available_slots:
+                  type: integer
+                status:
+                  $ref: '#/components/schemas/TrekStatus'
+                start_date:
+                  type: string
+                  format: date-time
+                end_date:
+                  type: string
+                  format: date-time
+                assigned_staff_id:
+                  type: integer
+      responses:
+        '200':
+          description: Trek updated successfully
+        '400':
+          description: Cannot modify completed trek or invalid data
+    delete:
+      tags:
+        - Admin Operations
+      summary: Delete Trek Route
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Trek route deleted
+
+  /api/admin/treks/{trek_id}/assign:
+    put:
+      tags:
+        - Admin Operations
+      summary: Assign Staff Guide
+      description: Assign or reassign active staff guide to trek.
+      parameters:
+        - name: trek_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                staff_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '200':
+          description: Staff assignment updated
+
+  /api/admin/staff:
+    get:
+      tags:
+        - Admin Operations
+      summary: List Staff Profiles
+      description: Retrieve staff profiles. (Cached in Redis)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/StaffStatus'
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Staff profiles list
+    post:
+      tags:
+        - Admin Operations
+      summary: Create Staff Profile
+      description: Create user with staff role and staff profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                status:
+                  $ref: '#/components/schemas/StaffStatus'
+      responses:
+        '201':
+          description: Staff created
+
+  /api/admin/staff/{staff_id}:
+    get:
+      tags:
+        - Admin Operations
+      summary: Get Staff Profile
+      parameters:
+        - name: staff_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Staff details
+    put:
+      tags:
+        - Admin Operations
+      summary: Update Staff Profile
+      parameters:
+        - name: staff_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                status:
+                  $ref: '#/components/schemas/StaffStatus'
+      responses:
+        '200':
+          description: Staff updated
+
+  /api/admin/staff/{staff_id}/status:
+    put:
+      tags:
+        - Admin Operations
+      summary: Update Staff Status
+      parameters:
+        - name: staff_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/StaffStatus'
+                active:
+                  type: boolean
+      responses:
+        '200':
+          description: Staff status updated
+
+  /api/admin/users:
+    get:
+      tags:
+        - Admin Operations
+      summary: List Users
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            example: user
+        - name: active
+          in: query
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of registered users
+
+  /api/admin/users/{user_id}/status:
+    put:
+      tags:
+        - Admin Operations
+      summary: Update User Status / Roles
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                active:
+                  type: boolean
+                roles:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: User status updated
+
+  /api/admin/search_users:
+    get:
+      tags:
+        - Admin Operations
+      summary: Search Users
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+
+  /api/admin/search_staff:
+    get:
+      tags:
+        - Admin Operations
+      summary: Search Staff
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+
+  /api/admin/search_treks:
+    get:
+      tags:
+        - Admin Operations
+      summary: Search Treks
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+
+# ==========================================
+# COMPONENTS & SCHEMAS
+# ==========================================
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        active:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+
+    Trek:
+      type: object
+      properties:
+        id:
+          type: integer
+        trek_name:
+          type: string
+        location:
+          type: string
+        difficulty:
+          $ref: '#/components/schemas/TrekDifficulty'
+        duration:
+          type: integer
+        available_slots:
+          type: integer
+        status:
+          $ref: '#/components/schemas/TrekStatus'
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        trek_id:
+          type: integer
+        booking_date:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        trek:
+          $ref: '#/components/schemas/Trek'
+
+    TrekDifficulty:
+      type: string
+      enum:
+        - Easy
+        - Moderate
+        - Hard
+
+    TrekStatus:
+      type: string
+      enum:
+        - Pending
+        - Approved
+        - Open
+        - Closed
+        - Completed
+
+    BookingStatus:
+      type: string
+      enum:
+        - Booked
+        - Cancelled
+        - Completed
+
+    StaffStatus:
+      type: string
+      enum:
+        - Active
+        - Inactive
+        - On Leave
