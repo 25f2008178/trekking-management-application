@@ -89,7 +89,7 @@ const toggleUserActiveStatus = async (user) => {
                 v-model="searchQuery"
                 type="text"
                 class="form-control bg-light border-start-0"
-                placeholder="Search trekker by Name, Email, or ID..."
+                placeholder="Search trekker by Name or Email..."
                 @input="loadData"
               />
             </div>

@@ -56,7 +56,6 @@ const filteredStaff = computed(() => {
     if (!searchQuery.value) return true
     const q = searchQuery.value.toLowerCase()
     return (
-      s.id.toString().includes(q) ||
       (s.name && s.name.toLowerCase().includes(q)) ||
       (s.email && s.email.toLowerCase().includes(q))
     )
@@ -162,7 +161,7 @@ const toggleStaffStatus = async (staff) => {
                 v-model="searchQuery"
                 type="text"
                 class="form-control bg-light border-start-0"
-                placeholder="Search staff by Name, Email, or ID..."
+                placeholder="Search staff by Name or Email..."
                 @input="loadData"
               />
             </div>

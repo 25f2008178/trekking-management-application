@@ -38,8 +38,8 @@ def create_booking():
         return jsonify({"error": "trek_id is required to create a booking."}), 400
 
     trek = db.session.get(Trek, trek_id)
-    if not trek or trek.status not in [TrekStatus.APPROVED, TrekStatus.OPEN]:
-        return jsonify({"error": f"Trek with id {trek_id} is not available for booking."}), 404
+    if not trek or trek.status != TrekStatus.OPEN:
+        return jsonify({"error": "Bookings can only be created for treks with status Open."}), 400
 
     if trek.available_slots <= 0:
         return jsonify({"error": "No available slots left for this trek."}), 400

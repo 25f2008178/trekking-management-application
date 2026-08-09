@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { api } from '@/services/api'
+import AdminTrekUsersModal from '@/components/admin/AdminTrekUsersModal.vue'
 
 const treks = ref([])
 const staffList = ref([])
@@ -18,7 +19,14 @@ const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showAssignModal = ref(false)
 const showDeleteModal = ref(false)
+const showUsersModal = ref(false)
+const trekForUsersModal = ref(null)
 const isSubmitting = ref(false)
+
+const openUsersModal = (trek) => {
+  trekForUsersModal.value = trek
+  showUsersModal.value = true
+}
 
 const currentTrek = ref({
   id: null,
@@ -42,13 +50,27 @@ const todayStr = computed(() => {
 })
 
 const minEndDate = computed(() => {
-  return currentTrek.value.start_date || todayStr.value
+  if (!currentTrek.value.start_date) return todayStr.value
+  const parts = currentTrek.value.start_date.split('-')
+  if (parts.length === 3) {
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+    d.setDate(d.getDate() + 1)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  return todayStr.value
 })
 
 watch(
   [() => currentTrek.value.start_date, () => currentTrek.value.end_date],
   ([start, end]) => {
     if (start && end) {
+      if (end <= start) {
+        currentTrek.value.end_date = minEndDate.value
+        return
+      }
       const startDate = new Date(start)
       const endDate = new Date(end)
       const diffMs = endDate.getTime() - startDate.getTime()
@@ -156,8 +178,8 @@ const handleCreate = async () => {
     actionError.value = 'Start date cannot be in the past (before today).'
     return
   }
-  if (currentTrek.value.start_date && currentTrek.value.end_date && currentTrek.value.end_date < currentTrek.value.start_date) {
-    actionError.value = 'End date cannot be before start date.'
+  if (currentTrek.value.start_date && currentTrek.value.end_date && currentTrek.value.end_date <= currentTrek.value.start_date) {
+    actionError.value = 'End date must be strictly after the start date.'
     return
   }
 
@@ -186,8 +208,8 @@ const handleUpdate = async () => {
     actionError.value = 'Start date cannot be in the past (before today).'
     return
   }
-  if (currentTrek.value.start_date && currentTrek.value.end_date && currentTrek.value.end_date < currentTrek.value.start_date) {
-    actionError.value = 'End date cannot be before start date.'
+  if (currentTrek.value.start_date && currentTrek.value.end_date && currentTrek.value.end_date <= currentTrek.value.start_date) {
+    actionError.value = 'End date must be strictly after the start date.'
     return
   }
 
@@ -270,7 +292,7 @@ const handleDelete = async () => {
                 v-model="searchQuery"
                 type="text"
                 class="form-control bg-light border-start-0"
-                placeholder="Search trek by Name or ID..."
+                placeholder="Search trek by Name, Location, or ID..."
                 @input="loadData"
               />
             </div>
@@ -402,6 +424,9 @@ const handleDelete = async () => {
                   </span>
                 </td>
                 <td class="pe-4 text-end">
+                  <button class="btn btn-sm btn-light border me-2" @click="openUsersModal(trek)" title="View Booked Trekkers Roster">
+                    <i class="bi bi-people-fill text-warning"></i>
+                  </button>
                   <button class="btn btn-sm btn-light border me-2" @click="openEdit(trek)" title="Edit Trek">
                     <i class="bi bi-pencil-fill text-primary"></i>
                   </button>
@@ -503,8 +528,13 @@ const handleDelete = async () => {
                   <label class="form-label fw-semibold">Assigned Staff Guide</label>
                   <select v-model="currentTrek.assigned_staff_id" class="form-select">
                     <option :value="null">-- None (Unassigned) --</option>
-                    <option v-for="s in staffList" :key="s.id" :value="s.id">
-                      {{ s.name }} ({{ s.email }}) - Status: {{ s.status }}
+                    <option
+                      v-for="s in staffList"
+                      :key="s.id"
+                      :value="s.id"
+                      :disabled="s.status !== 'Active'"
+                    >
+                      {{ s.name }} ({{ s.email }}) - Status: {{ s.status }}{{ s.status !== 'Active' ? ' (Disabled - Inactive)' : '' }}
                     </option>
                   </select>
                 </div>
@@ -544,8 +574,13 @@ const handleDelete = async () => {
               <label class="form-label fw-semibold">Select Staff</label>
               <select v-model="selectedStaffId" class="form-select">
                 <option value="">-- Unassign Staff --</option>
-                <option v-for="s in staffList" :key="s.id" :value="s.id">
-                  {{ s.name }} - {{ s.email }} ({{ s.status }})
+                <option
+                  v-for="s in staffList"
+                  :key="s.id"
+                  :value="s.id"
+                  :disabled="s.status !== 'Active'"
+                >
+                  {{ s.name }} - {{ s.email }} ({{ s.status }}){{ s.status !== 'Active' ? ' (Disabled - Inactive)' : '' }}
                 </option>
               </select>
             </div>
@@ -585,6 +620,13 @@ const handleDelete = async () => {
         </div>
       </div>
     </div>
+
+    <!-- Admin Trek Users Modal -->
+    <AdminTrekUsersModal
+      :show="showUsersModal"
+      :trek="trekForUsersModal"
+      @close="showUsersModal = false"
+    />
   </div>
 </template>
 

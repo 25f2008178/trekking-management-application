@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from flask import request, jsonify
 from sqlalchemy import cast, String
 from app.extensions import db
-from app.models import Trek, TrekDifficulty, TrekStatus, StaffProfile, BookingStatus
+from app.models import Trek, TrekDifficulty, TrekStatus, StaffProfile, BookingStatus, StaffStatus
 from app.routes.api.admin import admin_bp
 
 
@@ -87,8 +87,8 @@ def create_trek():
     if start_date and start_date.date() < today_date:
         return jsonify({"error": "Start date cannot be in the past (before today)."}), 400
 
-    if start_date and end_date and end_date < start_date:
-        return jsonify({"error": "End date cannot be before start date."}), 400
+    if start_date and end_date and end_date <= start_date:
+        return jsonify({"error": "End date must be strictly after the start date."}), 400
 
     if start_date and end_date:
         duration = max(0, (end_date - start_date).days)
@@ -114,6 +114,8 @@ def create_trek():
         staff = db.session.get(StaffProfile, assigned_staff_id)
         if not staff:
             return jsonify({"error": f"StaffProfile with id {assigned_staff_id} not found."}), 404
+        if staff.status != StaffStatus.ACTIVE and getattr(staff.status, "value", None) != "Active":
+            return jsonify({"error": "Cannot assign an inactive staff guide to a trek. Assigned staff must be active."}), 400
 
     trek = Trek(
         trek_name=trek_name,
@@ -175,8 +177,8 @@ def update_trek(trek_id):
     if trek.start_date and trek.start_date.date() < today_date:
         return jsonify({"error": "Start date cannot be in the past (before today)."}), 400
 
-    if trek.start_date and trek.end_date and trek.end_date < trek.start_date:
-        return jsonify({"error": "End date cannot be before start date."}), 400
+    if trek.start_date and trek.end_date and trek.end_date <= trek.start_date:
+        return jsonify({"error": "End date must be strictly after the start date."}), 400
 
     if trek.start_date and trek.end_date:
         trek.duration = max(0, (trek.end_date - trek.start_date).days)
@@ -189,6 +191,8 @@ def update_trek(trek_id):
             staff = db.session.get(StaffProfile, staff_id)
             if not staff:
                 return jsonify({"error": f"StaffProfile with id {staff_id} not found."}), 404
+            if staff.status != StaffStatus.ACTIVE and getattr(staff.status, "value", None) != "Active":
+                return jsonify({"error": "Cannot assign an inactive staff guide to a trek. Assigned staff must be active."}), 400
         trek.assigned_staff_id = staff_id
 
     db.session.commit()
@@ -219,9 +223,41 @@ def assign_staff_to_trek(trek_id):
         staff = db.session.get(StaffProfile, staff_id)
         if not staff:
             return jsonify({"error": f"StaffProfile with id {staff_id} not found."}), 404
+        if staff.status != StaffStatus.ACTIVE and getattr(staff.status, "value", None) != "Active":
+            return jsonify({"error": "Cannot assign an inactive staff guide to a trek. Assigned staff must be active."}), 400
         trek.assigned_staff_id = staff.id
     else:
         trek.assigned_staff_id = None
 
     db.session.commit()
     return jsonify({"message": "Staff assignment updated successfully", "trek": trek_to_dict(trek)}), 200
+
+
+@admin_bp.route("/treks/<int:trek_id>/users", methods=["GET"])
+def get_admin_registered_users(trek_id):
+    trek = db.session.get(Trek, trek_id)
+    if not trek:
+        return jsonify({"error": f"Trek with id {trek_id} not found."}), 404
+
+    registered_users = []
+    for b in trek.bookings:
+        b_date = None
+        if b.booking_date:
+            b_date = b.booking_date.isoformat()
+            if not b_date.endswith("Z") and "+" not in b_date and "-" not in b_date[10:]:
+                b_date += "Z"
+        registered_users.append({
+            "booking_id": b.id,
+            "user_id": b.user_id,
+            "name": b.user.name if b.user else None,
+            "email": b.user.email if b.user else None,
+            "booking_date": b_date,
+            "status": b.status.value if isinstance(b.status, enum.Enum) else str(b.status)
+        })
+
+    return jsonify({
+        "trek_id": trek.id,
+        "trek_name": trek.trek_name,
+        "total_registered": len([u for u in registered_users if u["status"] != "Cancelled"]),
+        "registered_users": registered_users
+    }), 200

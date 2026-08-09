@@ -90,6 +90,11 @@ def add_staff():
         staff_profile = user.staff_profile
         staff_profile.status = status
 
+    if staff_profile.status == StaffStatus.INACTIVE:
+        security.datastore.deactivate_user(user)
+    else:
+        security.datastore.activate_user(user)
+
     security.datastore.commit()
 
     return jsonify({"message": "Staff member created successfully", "staff": staff_to_dict(staff_profile)}), 201
@@ -119,6 +124,10 @@ def update_staff(staff_id):
     if "status" in data:
         try:
             staff.status = StaffStatus(data["status"].title())
+            if staff.status == StaffStatus.INACTIVE:
+                security.datastore.deactivate_user(staff.user)
+            else:
+                security.datastore.activate_user(staff.user)
         except ValueError:
             return jsonify({"error": f"Invalid staff status. Must be one of: {[e.value for e in StaffStatus]}"}), 400
 
@@ -145,8 +154,16 @@ def update_staff_status(staff_id):
         active_val = bool(data["active"])
         if active_val:
             security.datastore.activate_user(staff.user)
+            if staff.status == StaffStatus.INACTIVE:
+                staff.status = StaffStatus.ACTIVE
         else:
             security.datastore.deactivate_user(staff.user)
+            staff.status = StaffStatus.INACTIVE
+    else:
+        if staff.status == StaffStatus.INACTIVE:
+            security.datastore.deactivate_user(staff.user)
+        else:
+            security.datastore.activate_user(staff.user)
 
     security.datastore.commit()
     return jsonify({"message": "Staff status updated successfully", "staff": staff_to_dict(staff)}), 200

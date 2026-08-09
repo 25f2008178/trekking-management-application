@@ -26,7 +26,7 @@ def trek_to_dict(trek: Trek) -> dict:
 @user_bp.route("/treks", methods=["GET"])
 def list_treks():
     query = db.session.query(Trek).filter(
-        Trek.status.in_([TrekStatus.APPROVED, TrekStatus.OPEN])
+        Trek.status == TrekStatus.OPEN
     )
 
     difficulty_param = request.args.get("difficulty")
@@ -73,7 +73,7 @@ def list_treks():
     if status_param:
         try:
             status_enum = TrekStatus(status_param.capitalize())
-            if status_enum in [TrekStatus.APPROVED, TrekStatus.OPEN]:
+            if status_enum == TrekStatus.OPEN:
                 query = query.filter(Trek.status == status_enum)
         except ValueError:
             pass
@@ -85,7 +85,7 @@ def list_treks():
 @user_bp.route("/treks/<int:trek_id>", methods=["GET"])
 def get_trek(trek_id):
     trek = db.session.get(Trek, trek_id)
-    if not trek or trek.status not in [TrekStatus.APPROVED, TrekStatus.OPEN]:
-        return jsonify({"error": f"Trek with id {trek_id} not found or not available."}), 404
+    if not trek or trek.status != TrekStatus.OPEN:
+        return jsonify({"error": f"Trek with id {trek_id} not found or not open for booking."}), 404
 
     return jsonify(trek_to_dict(trek)), 200

@@ -2,8 +2,20 @@ import enum
 from flask import request, jsonify
 from flask_security import current_user
 from app.extensions import db
-from app.models import Trek, TrekStatus, Booking, BookingStatus
+from app.models import Trek, TrekStatus, Booking, BookingStatus, StaffStatus
 from app.routes.api.staff import staff_bp
+
+
+def verify_active_staff():
+    if not current_user.is_authenticated:
+        return jsonify({"error": "Authentication required."}), 401
+    if not hasattr(current_user, "staff_profile") or not current_user.staff_profile:
+        return jsonify({"error": "Access Denied: Not a registered staff account."}), 403
+    staff_status = current_user.staff_profile.status
+    is_inactive = (staff_status == StaffStatus.INACTIVE or getattr(staff_status, "value", None) == "Inactive")
+    if not current_user.active or is_inactive:
+        return jsonify({"error": "Access Denied: Your staff profile is inactive or blacklisted."}), 403
+    return None
 
 
 def trek_to_dict(trek: Trek) -> dict:
@@ -35,6 +47,10 @@ def booking_to_dict(booking: Booking) -> dict:
 
 @staff_bp.route("/treks", methods=["GET"])
 def list_assigned_treks():
+    err = verify_active_staff()
+    if err:
+        return err
+
     staff_profile_id = current_user.staff_profile.id
     query = db.session.query(Trek).filter(Trek.assigned_staff_id == staff_profile_id)
 
@@ -59,6 +75,10 @@ def list_assigned_treks():
 
 @staff_bp.route("/treks/<int:trek_id>", methods=["GET"])
 def get_assigned_trek(trek_id):
+    err = verify_active_staff()
+    if err:
+        return err
+
     trek = db.session.get(Trek, trek_id)
     if not trek:
         return jsonify({"error": f"Trek with id {trek_id} not found."}), 404
@@ -71,6 +91,9 @@ def get_assigned_trek(trek_id):
 
 @staff_bp.route("/treks/<int:trek_id>", methods=["PUT"])
 def update_assigned_trek(trek_id):
+    err = verify_active_staff()
+    if err:
+        return err
     trek = db.session.get(Trek, trek_id)
     if not trek:
         return jsonify({"error": f"Trek with id {trek_id} not found."}), 404
@@ -113,6 +136,10 @@ def update_assigned_trek(trek_id):
 
 @staff_bp.route("/treks/<int:trek_id>/users", methods=["GET"])
 def get_registered_users(trek_id):
+    err = verify_active_staff()
+    if err:
+        return err
+
     trek = db.session.get(Trek, trek_id)
     if not trek:
         return jsonify({"error": f"Trek with id {trek_id} not found."}), 404
@@ -132,6 +159,10 @@ def get_registered_users(trek_id):
 
 @staff_bp.route("/treks/<int:trek_id>/complete", methods=["PUT"])
 def mark_trek_completed(trek_id):
+    err = verify_active_staff()
+    if err:
+        return err
+
     trek = db.session.get(Trek, trek_id)
     if not trek:
         return jsonify({"error": f"Trek with id {trek_id} not found."}), 404

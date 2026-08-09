@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { api } from '@/services/api'
+import AdminTrekUsersModal from '@/components/admin/AdminTrekUsersModal.vue'
 
 const treks = ref([])
 const users = ref([])
@@ -9,6 +10,15 @@ const fetchError = ref('')
 
 const searchQuery = ref('')
 const statusFilter = ref('')
+
+// Modal state
+const showUsersModal = ref(false)
+const selectedTrek = ref(null)
+
+const openTrekUsersModal = (trek) => {
+  selectedTrek.value = trek
+  showUsersModal.value = true
+}
 
 const loadData = async () => {
   loading.value = true
@@ -207,9 +217,14 @@ const filteredTreksWithBookings = computed(() => {
                   </span>
                 </td>
                 <td class="pe-4 text-end">
-                  <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill fs-6 px-3 py-1">
-                    <i class="bi bi-ticket-fill me-1"></i>{{ trek.bookings_count || 0 }} Booked
-                  </span>
+                  <button
+                    class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3 py-1.5 fw-semibold fs-7 shadow-xs"
+                    @click="openTrekUsersModal(trek)"
+                    title="Click to view booked users roster"
+                  >
+                    <i class="bi bi-people-fill me-1.5 text-warning"></i>
+                    {{ trek.bookings_count || 0 }} Booked &bull; View Users
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -217,7 +232,18 @@ const filteredTreksWithBookings = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- Admin Trek Users Roster Modal -->
+    <AdminTrekUsersModal
+      :show="showUsersModal"
+      :trek="selectedTrek"
+      @close="showUsersModal = false"
+    />
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.fs-7 {
+  font-size: 0.85rem;
+}
+</style>
