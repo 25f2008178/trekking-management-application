@@ -95,11 +95,11 @@ onMounted(() => {
 const filteredTreks = computed(() => {
   return treks.value.filter(t => {
     if (!searchQuery.value) return true
-    const q = searchQuery.value.toLowerCase()
+    const q = searchQuery.value.toLowerCase().trim().replace(/^#/, '')
     return (
-      t.id.toString().includes(q) ||
-      t.trek_name.toLowerCase().includes(q) ||
-      t.location.toLowerCase().includes(q)
+      (t.id && t.id.toString().includes(q)) ||
+      (t.trek_name && t.trek_name.toLowerCase().includes(q)) ||
+      (t.location && t.location.toLowerCase().includes(q))
     )
   })
 })

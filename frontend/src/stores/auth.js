@@ -14,6 +14,7 @@ export const useAuthStore = defineStore('auth', {
     roles: (state) => state.user?.roles || [],
     isAdmin: (state) => state.user?.roles?.includes('admin') || false,
     isStaff: (state) => state.user?.roles?.includes('staff') || false,
+    isUser: (state) => state.user?.roles?.includes('user') || false,
     userName: (state) => state.user?.name || state.user?.email || 'User',
   },
 
@@ -50,6 +51,27 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         this.isAuthenticated = false
         this.error = err.message || 'Failed to sign in. Please check your credentials.'
+        throw err
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async register(name, email, password, passwordConfirm) {
+      this.loading = true
+      this.error = null
+      try {
+        const confirmVal = passwordConfirm !== undefined ? passwordConfirm : password
+        const response = await api.post('/register', {
+          name,
+          email,
+          password,
+          password_confirm: confirmVal,
+        })
+        await this.fetchProfile()
+        return response
+      } catch (err) {
+        this.error = err.message || 'Registration failed. Please check your details.'
         throw err
       } finally {
         this.loading = false

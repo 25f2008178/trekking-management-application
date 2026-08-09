@@ -2,8 +2,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 import LoginView from '@/views/LoginView.vue'
+import RegisterView from '@/views/RegisterView.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
 import StaffDashboard from '@/views/staff/StaffDashboard.vue'
+import UserDashboard from '@/views/user/UserDashboard.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -12,6 +14,12 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { guestOnly: true },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
       meta: { guestOnly: true },
     },
     {
@@ -27,11 +35,18 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresStaff: true },
     },
     {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: UserDashboard,
+      meta: { requiresAuth: true, requiresUser: true },
+    },
+    {
       path: '/',
-      redirect: (to) => {
+      redirect: () => {
         const authStore = useAuthStore()
         if (authStore.isAdmin) return '/admin'
         if (authStore.isStaff) return '/staff'
+        if (authStore.isAuthenticated) return '/dashboard'
         return '/login'
       },
     },
@@ -62,6 +77,10 @@ router.beforeEach(async (to, from, next) => {
     return next({ name: 'login' })
   }
 
+  if (to.meta.requiresUser && !authStore.isAuthenticated) {
+    return next({ name: 'login' })
+  }
+
   if (to.meta.guestOnly && authStore.isAuthenticated) {
     if (authStore.isAdmin) {
       return next({ name: 'admin' })
@@ -69,6 +88,7 @@ router.beforeEach(async (to, from, next) => {
     if (authStore.isStaff) {
       return next({ name: 'staff' })
     }
+    return next({ name: 'dashboard' })
   }
 
   next()

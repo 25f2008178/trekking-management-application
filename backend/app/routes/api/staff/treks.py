@@ -18,7 +18,7 @@ def trek_to_dict(trek: Trek) -> dict:
         "start_date": trek.start_date.isoformat() if trek.start_date else None,
         "end_date": trek.end_date.isoformat() if trek.end_date else None,
         "assigned_staff_id": trek.assigned_staff_id,
-        "bookings_count": len(trek.bookings) if trek.bookings else 0
+        "bookings_count": len([b for b in trek.bookings if b.status != BookingStatus.CANCELLED]) if trek.bookings else 0
     }
 
 
@@ -90,6 +90,9 @@ def update_assigned_trek(trek_id):
             return jsonify({"error": "available_slots must be a valid integer."}), 400
 
     if "status" in data:
+        if trek.status == TrekStatus.PENDING or (isinstance(trek.status, enum.Enum) and trek.status.value == "Pending") or str(trek.status).capitalize() == "Pending":
+            return jsonify({"error": "Cannot change status of a trek that is currently pending approval."}), 400
+
         raw_status = str(data["status"]).capitalize()
         allowed_statuses = [TrekStatus.OPEN, TrekStatus.CLOSED, TrekStatus.COMPLETED]
         try:
@@ -117,7 +120,8 @@ def get_registered_users(trek_id):
     if trek.assigned_staff_id != current_user.staff_profile.id:
         return jsonify({"error": "Forbidden. This trek is not assigned to you."}), 403
 
-    registered_users = [booking_to_dict(b) for b in trek.bookings]
+    active_bookings = [b for b in trek.bookings if b.status != BookingStatus.CANCELLED]
+    registered_users = [booking_to_dict(b) for b in active_bookings]
     return jsonify({
         "trek_id": trek.id,
         "trek_name": trek.trek_name,
@@ -134,6 +138,9 @@ def mark_trek_completed(trek_id):
 
     if trek.assigned_staff_id != current_user.staff_profile.id:
         return jsonify({"error": "Forbidden. This trek is not assigned to you."}), 403
+
+    if trek.status == TrekStatus.PENDING or (isinstance(trek.status, enum.Enum) and trek.status.value == "Pending") or str(trek.status).capitalize() == "Pending":
+        return jsonify({"error": "Cannot mark a pending trek as completed."}), 400
 
     trek.status = TrekStatus.COMPLETED
 

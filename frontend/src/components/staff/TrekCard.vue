@@ -129,7 +129,7 @@ const formatDate = (isoStr) => {
       <!-- Footer Action Toolbar -->
       <div class="border-top pt-3 mt-2 d-flex flex-wrap gap-2 justify-content-between align-items-center">
         <!-- Status Dropdown Quick Toggle -->
-        <div class="dropdown">
+        <div class="dropdown" v-if="trek.status !== 'Pending'">
           <button
             class="btn btn-sm btn-light border dropdown-toggle rounded-pill px-3 fs-8 fw-semibold"
             type="button"
@@ -160,17 +160,20 @@ const formatDate = (isoStr) => {
             </li>
           </ul>
         </div>
+        <span v-else class="badge bg-warning-subtle text-warning-emphasis border border-warning px-3 py-1.5 rounded-pill fs-8">
+          <i class="bi bi-hourglass-split me-1"></i>Pending Approval
+        </span>
 
         <!-- Mark Completed Action -->
         <button
-          v-if="trek.status !== 'Completed'"
+          v-if="trek.status !== 'Completed' && trek.status !== 'Pending'"
           type="button"
           class="btn btn-sm btn-outline-primary rounded-pill px-3 fs-8 fw-semibold"
           @click="$emit('mark-completed', trek)"
         >
           <i class="bi bi-check2-circle me-1"></i>Mark Completed
         </button>
-        <span v-else class="badge bg-primary-subtle text-primary border border-primary px-3 py-1.5 rounded-pill fs-8">
+        <span v-else-if="trek.status === 'Completed'" class="badge bg-primary-subtle text-primary border border-primary px-3 py-1.5 rounded-pill fs-8">
           <i class="bi bi-check-all me-1"></i>Trek Completed
         </span>
       </div>

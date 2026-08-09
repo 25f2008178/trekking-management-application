@@ -7,10 +7,13 @@ import { api } from '@/services/api'
 import TrekCard from '@/components/staff/TrekCard.vue'
 import EditSlotsModal from '@/components/staff/EditSlotsModal.vue'
 import ParticipantListModal from '@/components/staff/ParticipantListModal.vue'
+import StaffProfileTab from '@/components/staff/StaffProfileTab.vue'
 import AppLogo from '@/components/common/AppLogo.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+const activeTab = ref('treks')
 
 const treks = ref([])
 const loading = ref(true)
@@ -100,6 +103,10 @@ const handleTrekSlotsUpdated = (updatedTrek) => {
 }
 
 const handleUpdateStatus = async (trek, newStatus) => {
+  if (trek.status === 'Pending') {
+    errorMessage.value = 'Cannot change status of a trek that is currently pending approval.'
+    return
+  }
   try {
     const res = await api.put(`/api/staff/treks/${trek.id}`, { status: newStatus })
     const updated = res.trek || { ...trek, status: newStatus }
@@ -118,12 +125,21 @@ const handleUpdateStatus = async (trek, newStatus) => {
 }
 
 const openCompleteConfirmation = (trek) => {
+  if (trek.status === 'Pending') {
+    errorMessage.value = 'Cannot mark a pending trek as completed.'
+    return
+  }
   selectedTrek.value = trek
   showCompleteConfirmModal.value = true
 }
 
 const handleConfirmMarkCompleted = async () => {
   if (!selectedTrek.value) return
+  if (selectedTrek.value.status === 'Pending') {
+    errorMessage.value = 'Cannot mark a pending trek as completed.'
+    showCompleteConfirmModal.value = false
+    return
+  }
   isSubmittingAction.value = true
   errorMessage.value = ''
   try {
@@ -174,7 +190,11 @@ onMounted(async () => {
 
         <div class="d-flex align-items-center ms-auto">
           <!-- Staff Profile Pill -->
-          <div class="d-flex align-items-center text-white me-3 bg-white-10 px-3 py-1.5 rounded-pill">
+          <div
+            class="d-flex align-items-center text-white me-3 bg-white-10 px-3 py-1.5 rounded-pill cursor-pointer"
+            @click="activeTab = 'profile'"
+            title="Manage Profile & Password"
+          >
             <i class="bi bi-person-badge fs-5 me-2 text-emerald"></i>
             <div>
               <div class="fw-semibold lh-1 fs-7">{{ authStore.userName }}</div>
@@ -201,6 +221,36 @@ onMounted(async () => {
         <i class="bi bi-exclamation-octagon-fill me-2"></i>{{ errorMessage }}
         <button type="button" class="btn-close" @click="errorMessage = ''"></button>
       </div>
+
+      <!-- Navigation Tabs -->
+      <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-2">
+          <ul class="nav nav-pills nav-fill gap-2">
+            <li class="nav-item">
+              <button
+                class="nav-link rounded-3 fw-semibold transition-all py-2.5"
+                :class="{ 'active bg-emerald text-white': activeTab === 'treks' }"
+                @click="activeTab = 'treks'"
+              >
+                <i class="bi bi-map me-2"></i>Assigned Treks Management
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                class="nav-link rounded-3 fw-semibold transition-all py-2.5"
+                :class="{ 'active bg-emerald text-white': activeTab === 'profile' }"
+                @click="activeTab = 'profile'"
+              >
+                <i class="bi bi-person-gear me-2"></i>My Staff Profile
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Dynamic Tab Content -->
+      <transition name="fade" mode="out-in">
+        <div v-if="activeTab === 'treks'" key="treks">
 
       <!-- Staff Scope Banner -->
       <div class="card border-0 shadow-sm rounded-4 bg-gradient-emerald text-white mb-4 overflow-hidden position-relative">
@@ -364,6 +414,10 @@ onMounted(async () => {
       </div>
     </div>
 
+    <StaffProfileTab v-else-if="activeTab === 'profile'" key="profile" />
+  </transition>
+</div>
+
     <!-- Modals -->
     <EditSlotsModal
       :show="showSlotsModal"
@@ -484,5 +538,32 @@ onMounted(async () => {
 
 .fs-8 {
   font-size: 0.725rem;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-link {
+  color: #64748b;
+}
+
+.nav-link:hover:not(.active) {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

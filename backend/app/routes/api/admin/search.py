@@ -1,3 +1,4 @@
+from sqlalchemy import cast, String
 from flask import request, jsonify
 from app.extensions import db
 from app.models import User, Role, StaffProfile, Trek
@@ -42,9 +43,12 @@ def search_treks():
     if not query_str:
         return jsonify([]), 200
 
-    search_filter = f"%{query_str}%"
+    clean_search = query_str.lstrip("#")
+    search_filter = f"%{clean_search}%"
     matching_treks = db.session.query(Trek).filter(
-        (Trek.trek_name.ilike(search_filter)) | (Trek.location.ilike(search_filter))
+        (Trek.trek_name.ilike(search_filter))
+        | (Trek.location.ilike(search_filter))
+        | (cast(Trek.id, String).ilike(search_filter))
     ).all()
 
     return jsonify([trek_to_dict(t) for t in matching_treks]), 200

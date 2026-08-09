@@ -1,8 +1,9 @@
 import enum
 from datetime import datetime, timezone
 from flask import request, jsonify
+from sqlalchemy import cast, String
 from app.extensions import db
-from app.models import Trek, TrekDifficulty, TrekStatus, StaffProfile
+from app.models import Trek, TrekDifficulty, TrekStatus, StaffProfile, BookingStatus
 from app.routes.api.admin import admin_bp
 
 
@@ -34,7 +35,7 @@ def trek_to_dict(trek: Trek) -> dict:
             "email": trek.assigned_staff.user.email,
             "status": trek.assigned_staff.status.value if isinstance(trek.assigned_staff.status, enum.Enum) else str(trek.assigned_staff.status)
         } if trek.assigned_staff else None,
-        "bookings_count": len(trek.bookings) if trek.bookings else 0
+        "bookings_count": len([b for b in trek.bookings if b.status != BookingStatus.CANCELLED]) if trek.bookings else 0
     }
 
 
@@ -58,11 +59,14 @@ def list_treks():
         except ValueError:
             pass
 
-    search_param = request.args.get("search")
+    search_param = request.args.get("search", "").strip() if request.args.get("search") else None
     if search_param:
-        search_filter = f"%{search_param}%"
+        clean_search = search_param.lstrip("#")
+        search_filter = f"%{clean_search}%"
         query = query.filter(
-            (Trek.trek_name.ilike(search_filter)) | (Trek.location.ilike(search_filter))
+            (Trek.trek_name.ilike(search_filter))
+            | (Trek.location.ilike(search_filter))
+            | (cast(Trek.id, String).ilike(search_filter))
         )
 
     treks = query.all()

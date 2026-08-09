@@ -94,13 +94,20 @@ const handleLogin = async () => {
 
           <button
             type="submit"
-            class="btn btn-emerald w-100 py-2 fw-semibold text-white shadow-sm"
+            class="btn btn-emerald w-100 py-2.5 rounded-pill fw-semibold text-white shadow-sm mb-3"
             :disabled="isSubmitting"
           >
             <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status"></span>
             <span>{{ isSubmitting ? 'Signing In...' : 'Sign In' }}</span>
           </button>
         </form>
+
+        <div class="text-center pt-2 border-top">
+          <span class="small text-muted">Don't have an account? </span>
+          <router-link to="/register" class="small text-emerald fw-semibold text-decoration-none">
+            Register Here
+          </router-link>
+        </div>
       </div>
     </div>
   </div>

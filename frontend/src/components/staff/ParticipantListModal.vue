@@ -46,9 +46,12 @@ watch(
 )
 
 const filteredUsers = computed(() => {
-  if (!searchQuery.value.trim()) return registeredUsers.value
+  const activeUsers = registeredUsers.value.filter(
+    (u) => (u.status || '').toLowerCase() !== 'cancelled'
+  )
+  if (!searchQuery.value.trim()) return activeUsers
   const q = searchQuery.value.toLowerCase()
-  return registeredUsers.value.filter(
+  return activeUsers.filter(
     (u) =>
       (u.name && u.name.toLowerCase().includes(q)) ||
       (u.email && u.email.toLowerCase().includes(q))
@@ -58,7 +61,8 @@ const filteredUsers = computed(() => {
 const formatDate = (isoStr) => {
   if (!isoStr) return 'N/A'
   try {
-    return new Date(isoStr).toLocaleDateString(undefined, {
+    const utcDateStr = isoStr.endsWith('Z') || isoStr.includes('+') ? isoStr : `${isoStr}Z`
+    return new Date(utcDateStr).toLocaleString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
