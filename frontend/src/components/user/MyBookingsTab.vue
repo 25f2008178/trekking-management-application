@@ -57,6 +57,50 @@ const handleCancelBooking = async (booking) => {
     cancellingId.value = null
   }
 }
+
+const exporting = ref(false)
+const handleExportCSV = async () => {
+  exporting.value = true
+  actionError.value = ''
+  successMessage.value = ''
+  try {
+    const startRes = await api.post('/api/user/export')
+    const taskId = startRes.task_id
+
+    if (!taskId) throw new Error('Export task failed to start.')
+
+    let attempts = 0
+    while (attempts < 30) {
+      await new Promise(r => setTimeout(r, 1000))
+      attempts++
+      const statusRes = await api.get(`/api/user/export/${taskId}`)
+      if (statusRes.status === 'SUCCESS') {
+        const downloadUrl = `/api/user/export/${taskId}/download`
+        const response = await fetch(downloadUrl, { credentials: 'include' })
+        if (!response.ok) throw new Error('Failed to download CSV export.')
+
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = statusRes.result?.filename || 'trekking_history.csv'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+
+        successMessage.value = 'CSV Export downloaded successfully! A copy has also been sent to your email.'
+        break
+      } else if (statusRes.status === 'FAILURE') {
+        throw new Error(statusRes.error || 'Export process failed.')
+      }
+    }
+  } catch (err) {
+    actionError.value = err.message || 'Failed to export trekking history.'
+  } finally {
+    exporting.value = false
+  }
+}
 </script>
 
 <template>
@@ -74,13 +118,24 @@ const handleCancelBooking = async (booking) => {
 
     <!-- Active Bookings Header Card -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
-      <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex align-items-center justify-content-between">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h5 class="fw-bold mb-0 text-dark">
           <i class="bi bi-journal-bookmark-fill me-2 text-emerald"></i>Active Booked Expeditions
         </h5>
-        <span class="badge bg-light text-dark border rounded-pill px-3">
-          Total Booked: {{ activeBookings.length }}
-        </span>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+            Total Booked: {{ activeBookings.length }}
+          </span>
+          <button
+            class="btn btn-outline-success btn-sm rounded-pill px-3 fw-semibold d-inline-flex align-items-center"
+            :disabled="exporting"
+            @click="handleExportCSV"
+          >
+            <span v-if="exporting" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            <i v-else class="bi bi-file-earmark-arrow-down me-1.5 fs-6"></i>
+            {{ exporting ? 'Exporting CSV...' : 'Export History (CSV)' }}
+          </button>
+        </div>
       </div>
 
       <div class="card-body p-4">

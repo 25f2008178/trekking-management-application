@@ -103,6 +103,9 @@ def update_assigned_trek(trek_id):
 
     data = request.get_json() or {}
 
+    if trek.status == TrekStatus.COMPLETED:
+        return jsonify({"error": "Cannot modify a completed trek."}), 400
+
     if "available_slots" in data:
         try:
             slots = int(data["available_slots"])

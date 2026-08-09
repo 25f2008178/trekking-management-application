@@ -152,6 +152,9 @@ def update_trek(trek_id):
 
     data = request.get_json() or {}
 
+    if trek.status == TrekStatus.COMPLETED:
+        return jsonify({"error": "Cannot modify a completed trek."}), 400
+
     if "trek_name" in data:
         trek.trek_name = data["trek_name"]
     if "location" in data:
@@ -215,6 +218,9 @@ def assign_staff_to_trek(trek_id):
     trek = db.session.get(Trek, trek_id)
     if not trek:
         return jsonify({"error": f"Trek with id {trek_id} not found."}), 404
+
+    if trek.status == TrekStatus.COMPLETED:
+        return jsonify({"error": "Cannot modify a completed trek."}), 400
 
     data = request.get_json() or {}
     staff_id = data.get("staff_id")
