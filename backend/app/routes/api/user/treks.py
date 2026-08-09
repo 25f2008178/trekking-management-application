@@ -1,5 +1,6 @@
 import enum
 from flask import request, jsonify
+from app.cache import cache_response
 from app.extensions import db
 from app.models import Trek, TrekDifficulty, TrekStatus
 from app.routes.api.user import user_bp
@@ -24,6 +25,7 @@ def trek_to_dict(trek: Trek) -> dict:
 
 
 @user_bp.route("/treks", methods=["GET"])
+@cache_response(timeout=300, key_prefix="treks")
 def list_treks():
     query = db.session.query(Trek).filter(
         Trek.status == TrekStatus.OPEN
@@ -83,6 +85,7 @@ def list_treks():
 
 
 @user_bp.route("/treks/<int:trek_id>", methods=["GET"])
+@cache_response(timeout=300, key_prefix="treks")
 def get_trek(trek_id):
     trek = db.session.get(Trek, trek_id)
     if not trek or trek.status != TrekStatus.OPEN:

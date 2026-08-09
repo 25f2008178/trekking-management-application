@@ -1,6 +1,7 @@
 import enum
 from flask import request, jsonify
 from flask_security import current_user
+from app.cache import cache_response, invalidate_cache_pattern
 from app.extensions import db
 from app.models import Trek, TrekStatus, Booking, BookingStatus, StaffStatus
 from app.routes.api.staff import staff_bp
@@ -46,6 +47,7 @@ def booking_to_dict(booking: Booking) -> dict:
 
 
 @staff_bp.route("/treks", methods=["GET"])
+@cache_response(timeout=300, key_prefix="treks")
 def list_assigned_treks():
     err = verify_active_staff()
     if err:
@@ -74,6 +76,7 @@ def list_assigned_treks():
 
 
 @staff_bp.route("/treks/<int:trek_id>", methods=["GET"])
+@cache_response(timeout=300, key_prefix="treks")
 def get_assigned_trek(trek_id):
     err = verify_active_staff()
     if err:
@@ -134,6 +137,7 @@ def update_assigned_trek(trek_id):
             }), 400
 
     db.session.commit()
+    invalidate_cache_pattern("treks:*")
     return jsonify({"message": "Trek details updated successfully", "trek": trek_to_dict(trek)}), 200
 
 
@@ -183,6 +187,7 @@ def mark_trek_completed(trek_id):
             booking.status = BookingStatus.COMPLETED
 
     db.session.commit()
+    invalidate_cache_pattern("treks:*")
     return jsonify({
         "message": "Trek marked as completed successfully",
         "trek": trek_to_dict(trek)

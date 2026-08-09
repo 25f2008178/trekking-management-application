@@ -1,6 +1,7 @@
 import enum
 from flask import request, jsonify
 from flask_security.utils import hash_password
+from app.cache import cache_response, invalidate_cache_pattern
 from app.extensions import db, security
 from app.models import User, StaffProfile, StaffStatus
 from app.routes.api.admin import admin_bp
@@ -27,6 +28,7 @@ def staff_to_dict(staff: StaffProfile) -> dict:
 
 
 @admin_bp.route("/staff", methods=["GET"])
+@cache_response(timeout=300, key_prefix="staff")
 def list_staff():
     query = db.session.query(StaffProfile).join(User)
 
@@ -96,11 +98,13 @@ def add_staff():
         security.datastore.activate_user(user)
 
     security.datastore.commit()
+    invalidate_cache_pattern("staff:*")
 
     return jsonify({"message": "Staff member created successfully", "staff": staff_to_dict(staff_profile)}), 201
 
 
 @admin_bp.route("/staff/<int:staff_id>", methods=["GET"])
+@cache_response(timeout=300, key_prefix="staff")
 def get_staff(staff_id):
     staff = db.session.get(StaffProfile, staff_id)
     if not staff:
@@ -132,6 +136,7 @@ def update_staff(staff_id):
             return jsonify({"error": f"Invalid staff status. Must be one of: {[e.value for e in StaffStatus]}"}), 400
 
     db.session.commit()
+    invalidate_cache_pattern("staff:*")
     return jsonify({"message": "Staff details updated successfully", "staff": staff_to_dict(staff)}), 200
 
 
@@ -166,4 +171,5 @@ def update_staff_status(staff_id):
             security.datastore.activate_user(staff.user)
 
     security.datastore.commit()
+    invalidate_cache_pattern("staff:*")
     return jsonify({"message": "Staff status updated successfully", "staff": staff_to_dict(staff)}), 200

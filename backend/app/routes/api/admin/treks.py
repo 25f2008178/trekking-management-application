@@ -2,6 +2,7 @@ import enum
 from datetime import datetime, timezone
 from flask import request, jsonify
 from sqlalchemy import cast, String
+from app.cache import cache_response, invalidate_cache_pattern
 from app.extensions import db
 from app.models import Trek, TrekDifficulty, TrekStatus, StaffProfile, BookingStatus, StaffStatus
 from app.routes.api.admin import admin_bp
@@ -40,6 +41,7 @@ def trek_to_dict(trek: Trek) -> dict:
 
 
 @admin_bp.route("/treks", methods=["GET"])
+@cache_response(timeout=300, key_prefix="treks")
 def list_treks():
     query = db.session.query(Trek)
 
@@ -132,10 +134,13 @@ def create_trek():
     db.session.add(trek)
     db.session.commit()
 
+    invalidate_cache_pattern("treks:*")
+
     return jsonify({"message": "Trek route created successfully", "trek": trek_to_dict(trek)}), 201
 
 
 @admin_bp.route("/treks/<int:trek_id>", methods=["GET"])
+@cache_response(timeout=300, key_prefix="treks")
 def get_trek(trek_id):
     trek = db.session.get(Trek, trek_id)
     if not trek:
@@ -199,6 +204,7 @@ def update_trek(trek_id):
         trek.assigned_staff_id = staff_id
 
     db.session.commit()
+    invalidate_cache_pattern("treks:*")
     return jsonify({"message": "Trek route updated successfully", "trek": trek_to_dict(trek)}), 200
 
 
@@ -210,6 +216,7 @@ def delete_trek(trek_id):
 
     db.session.delete(trek)
     db.session.commit()
+    invalidate_cache_pattern("treks:*")
     return jsonify({"message": f"Trek route {trek_id} removed successfully."}), 200
 
 
@@ -236,6 +243,8 @@ def assign_staff_to_trek(trek_id):
         trek.assigned_staff_id = None
 
     db.session.commit()
+    invalidate_cache_pattern("treks:*")
+    invalidate_cache_pattern("staff:*")
     return jsonify({"message": "Staff assignment updated successfully", "trek": trek_to_dict(trek)}), 200
 
 

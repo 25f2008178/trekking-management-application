@@ -9,7 +9,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - REDIS_HOSTS=local:redis:6379
+      - REDIS_HOSTS=Broker:redis:6379:0,CeleryResults:redis:6379:1,APICache:redis:6379:2
 
   mailhog:
     image: mailhog/mailhog

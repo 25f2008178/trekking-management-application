@@ -64,7 +64,7 @@ trekking-management-application/
 ### 1. Clone & Configure
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/25f2008178/trekking-management-application
 cd trekking-management-application
 cp .env.example .env
 ```
@@ -190,6 +190,26 @@ python trigger_tasks.py --all
 ```
 
 Check sent emails at [http://localhost:8025](http://localhost:8025) (MailHog).
+
+---
+
+## Redis API Caching & Optimization
+
+Frequently accessed read-heavy endpoints are optimized using Redis caching (`REDIS_CACHE_URL` on DB 2):
+
+### Cached Endpoints
+- `GET /api/user/treks` (Trek listing with filters)
+- `GET /api/user/treks/<id>` (Trek detail)
+- `GET /api/admin/treks` & `GET /api/admin/staff`
+- `GET /api/staff/treks` & `GET /api/staff/treks/<id>`
+
+### Expiry & Refresh Policies
+- **TTL Expiry**: Default 300-second (5 minutes) cache key expiration.
+- **Cache Invalidation on Mutation**:
+  - Creating, updating, deleting, or assigning staff to a trek invalidates `treks:*` and `staff:*` cache keys.
+  - Creating or cancelling a trek booking invalidates `treks:*` cache keys immediately so available slot counts stay accurate.
+  - Creating or updating staff details invalidates `staff:*` cache keys.
+- **Headers**: Responses include `X-Cache: HIT` or `X-Cache: MISS` headers for debugging.
 
 ---
 

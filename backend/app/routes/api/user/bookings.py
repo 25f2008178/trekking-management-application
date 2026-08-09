@@ -2,6 +2,7 @@ import enum
 from flask import request, jsonify
 from flask_security import auth_required, current_user
 
+from app.cache import invalidate_cache_pattern
 from app.extensions import db
 from app.models import Booking, BookingStatus, Trek, TrekStatus
 from app.routes.api.user import user_bp
@@ -63,6 +64,8 @@ def create_booking():
     db.session.add(booking)
     db.session.commit()
 
+    invalidate_cache_pattern("treks:*")
+
     return jsonify({
         "message": "Trek booked successfully",
         "booking": booking_to_dict(booking)
@@ -115,6 +118,8 @@ def cancel_booking(booking_id):
         booking.trek.available_slots += 1
 
     db.session.commit()
+
+    invalidate_cache_pattern("treks:*")
 
     return jsonify({
         "message": "Booking cancelled successfully",
